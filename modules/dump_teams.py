@@ -7,6 +7,103 @@ import time
 import argparse
 from typing import List, Optional
 from playwright.sync_api import sync_playwright
+from tabulate import tabulate
+
+
+def parse_player_name(full_text):
+    """Parse combined player name text to extract name, team, and position"""
+    if not full_text or full_text in ['MOVE', 'TOTALS', '']:
+        return {'name': full_text, 'team': '', 'position': ''}
+    
+    # Common NFL team abbreviations (clean team names only)
+    clean_teams = ['Ari', 'Atl', 'Bal', 'Buf', 'Car', 'Chi', 'Cin', 'Cle', 'Dal', 'Den', 
+                   'Det', 'GB', 'Hou', 'Ind', 'Jax', 'KC', 'LV', 'LAC', 'LAR', 'Mia', 
+                   'Min', 'NE', 'NO', 'NYG', 'NYJ', 'Phi', 'Pit', 'SF', 'Sea', 'TB', 
+                   'Ten', 'Was', 'Wsh']  # Added Wsh for Washington
+    
+    # Common position abbreviations
+    positions = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'FLEX', 'Bench', 'IR']
+    
+    # Try to find position first
+    position = ''
+    for pos in positions:
+        if pos in full_text:
+            position = pos
+            break
+    
+    # Try to find clean team abbreviation
+    team = ''
+    for team_abbrev in clean_teams:
+        if team_abbrev in full_text:
+            team = team_abbrev
+            break
+    
+    # Extract name by removing team and position
+    name = full_text
+    if team:
+        name = name.replace(team, '')
+    if position:
+        name = name.replace(position, '')
+    
+    # Clean up the name - remove any remaining single letters or special characters at the end
+    name = name.strip()
+    # Remove trailing single letters that might be leftover
+    while name and name[-1].isupper() and len(name) > 1:
+        name = name[:-1].strip()
+    
+    return {'name': name, 'team': team, 'position': position}
+
+
+def determine_player_status(player_data, player_index, total_players):
+    """Determine if player is in current roster, bench, or IR"""
+    position = player_data.get('Position', '').strip()
+    player_name = player_data.get('Player Name', '').strip()
+    status = player_data.get('Status', '').strip()
+    projected_points = player_data.get('Projected Points', '0')
+    start_percent = player_data.get('Start %', '0')
+    
+    # Check for IR status first
+    if 'IR' in status.upper() or 'INJURED' in status.upper() or 'OUT' in status.upper():
+        return 'IR'
+    
+    # Check for low projected points (likely IR)
+    try:
+        proj_pts = float(projected_points)
+        if proj_pts == 0.0 and position in ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST']:
+            return 'IR'
+    except (ValueError, TypeError):
+        pass
+    
+    # Check if position indicates bench
+    if position in ['Bench', 'FLEX']:
+        return 'BE'
+    
+    # Based on typical fantasy roster structure:
+    # First ~9-10 players are usually starters (QB, RB, RB, WR, WR, TE, FLEX, K, D/ST)
+    # Players after that are typically bench
+    
+    # If we're in the first 10 players and have a valid position, likely a starter
+    if player_index < 10 and position in ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST']:
+        return position
+    
+    # If we're beyond the first 10 players, likely bench
+    if player_index >= 10:
+        return 'BE'
+    
+    # Check for low start percentage (likely bench)
+    try:
+        start_pct = float(start_percent)
+        if start_pct < 50.0 and position in ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST']:
+            return 'BE'
+    except (ValueError, TypeError):
+        pass
+    
+    # Check if it's a valid position (current roster) - return just the position
+    if position in ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST']:
+        return position
+    
+    # Default to bench if unclear
+    return 'BE'
 
 
 def dump_teams_command(args):
@@ -26,9 +123,8 @@ def dump_teams_command(args):
             team_data = fetch_team_data("8")
             display_team_data("8", team_data)
         
-        # Hang and wait for additional processing instructions
-        print("\nWaiting for additional processing instructions...")
-        input("Press Enter when ready to continue...")
+        # Operation completed successfully
+        print("\nTeam data extraction completed successfully!")
             
     except Exception as e:
         print(f"Error dumping teams: {e}")
@@ -49,21 +145,13 @@ def load_session():
     return None
 
 def fetch_team_data(team_id: str):
-    """Fetch team data from ESPN Fantasy Football using saved session"""
-    # Import Chrome launcher from login module
-    from modules.login import launch_chrome
-    
-    # Ensure Chrome is running
-    if not launch_chrome():
-        print("Failed to launch Chrome. Please start Chrome manually with remote debugging.")
-        return None
-    
+    """Fetch team data from ESPN Fantasy Football using headless browser"""
     team_url = f"https://fantasy.espn.com/football/team?leagueId=1922964857&teamId={team_id}&seasonId=2025"
     
     with sync_playwright() as p:
         try:
-            # Connect to existing Chrome browser
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            # Launch browser in headless mode
+            browser = p.chromium.launch(headless=True)
             
             # Load saved session if available
             session_state = load_session()
@@ -75,7 +163,7 @@ def fetch_team_data(team_id: str):
                 page = browser.new_page()
                 print("No saved session found, using new page...")
             
-            print(f"Opening new tab and navigating to: {team_url}")
+            print(f"Navigating to: {team_url}")
             page.goto(team_url)
             
             # Wait for the page to load
@@ -85,117 +173,199 @@ def fetch_team_data(team_id: str):
             # Extract team data
             team_data = extract_team_data_from_page(page)
             
-            # Keep the browser open indefinitely for inspection
-            print("Browser will stay open for inspection. Press Ctrl+C to close when done.")
-            try:
-                while True:
-                    time.sleep(60)  # Sleep for 1 minute intervals
-            except KeyboardInterrupt:
-                print("\nClosing browser...")
+            # Close browser
+            browser.close()
             
             return team_data
             
         except Exception as e:
-            print(f"Error connecting to existing Chrome: {e}")
-            print("Make sure Chrome is running with remote debugging enabled")
+            print(f"Error fetching team data: {e}")
             raise
 
 
 def extract_team_data_from_page(page):
-    """Extract team data from the ESPN team page"""
-    team_data = []
-    
+    """Extract team data from the ESPN team page using improved HTML table parsing"""
     try:
-        # Wait for roster table to load
-        page.wait_for_selector("table", timeout=10000)
+        # Wait for the roster table to load
+        page.wait_for_selector(".jsx-1925058086.team-page", timeout=10000)
         
-        # Look for roster table - ESPN uses various selectors
-        roster_selectors = [
-            "table[class*='roster']",
-            "table[class*='Table']", 
-            "table[class*='table']",
-            ".roster-table",
-            "[data-testid*='roster']"
-        ]
+        # Wait for the table to be fully loaded
+        page.wait_for_selector("div.Table__Scroller table.Table", timeout=10000)
         
-        roster_table = None
-        for selector in roster_selectors:
-            try:
-                roster_table = page.query_selector(selector)
-                if roster_table:
-                    print(f"Found roster table with selector: {selector}")
-                    break
-            except:
-                continue
+        print("Extracting roster data from HTML table...")
         
-        if not roster_table:
-            # Fallback: look for any table with player data
-            tables = page.query_selector_all("table")
-            for table in tables:
-                rows = table.query_selector_all("tr")
-                if len(rows) > 1:  # Has header + data rows
-                    roster_table = table
-                    print("Using fallback table detection")
-                    break
+        # Get the HTML content and parse it
+        html_content = page.content()
         
-        if roster_table:
-            # Extract table data
-            rows = roster_table.query_selector_all("tr")
-            
-            for i, row in enumerate(rows):
-                if i == 0:  # Skip header row
-                    continue
-                    
-                cells = row.query_selector_all("td, th")
-                if len(cells) > 0:
-                    player_data = []
-                    for cell in cells:
-                        text = cell.inner_text().strip()
-                        if text:
-                            player_data.append(text)
-                    
-                    if player_data:
-                        team_data.append(player_data)
+        # Use BeautifulSoup to parse the HTML
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Find the parent div with class "Table__Scroller"
+        table_scroller = soup.find('div', class_='Table__Scroller')
+        
+        if not table_scroller:
+            print("Could not find div with class 'Table__Scroller'")
+            return None
+        
+        # Find the table within the scroller div
+        table = table_scroller.find('table', class_='Table')
+        
+        if not table:
+            print("Could not find table with class 'Table'")
+            return None
+        
+        print("Found table! Extracting player data...")
+        
+        players = []
+        
+        # Find table body
+        tbody = table.find('tbody')
+        if not tbody:
+            print("No tbody found, looking for rows directly in table")
+            rows = table.find_all('tr')
         else:
-            print("Could not find roster table. Page content:")
-            print(page.content()[:1000])  # First 1000 chars for debugging
+            rows = tbody.find_all('tr')
+        
+        # Get header information for column mapping
+        header_row = table.find('tr')
+        headers = []
+        if header_row:
+            for th in header_row.find_all(['th', 'td']):
+                headers.append(th.get_text(strip=True))
+        
+        print(f"Found {len(headers)} columns: {headers}")
+        print(f"Found {len(rows)} rows")
+        
+        # Define meaningful column names based on observed data
+        column_mapping = {
+            'STARTERS': 'Position',
+            'NFL Week 3': 'Player_Info',  # This will be parsed into separate columns
+            '2025 season': 'Action',  # Will be filtered out in display
+            'column_3': 'Opponent',
+            'column_4': 'Game Time',
+            'column_5': 'Projected Points',
+            'column_6': 'Status',
+            'column_7': 'Rank',
+            'column_8': 'Ownership %',
+            'column_9': 'Start %',
+            'column_10': 'Points',
+            'column_11': 'Avg Points',
+            'column_12': 'Last Game',
+            'column_13': 'Trend',
+            'column_14': 'Notes'
+        }
+        
+        # Extract data from each row
+        for i, row in enumerate(rows):
+            cells = row.find_all(['td', 'th'])
             
+            # Skip header row if it's the first row
+            if i == 0 and all(cell.name == 'th' for cell in cells):
+                continue
+                
+            if len(cells) == 0:
+                continue
+                
+            player_data = {}
+            
+            # Map cell data to headers
+            for j, cell in enumerate(cells):
+                original_header = headers[j] if j < len(headers) else f"column_{j}"
+                header = column_mapping.get(original_header, original_header)
+                
+                # Get text content, handling nested elements
+                text = cell.get_text(strip=True)
+                
+                # Special handling for player name column
+                if header == 'Player_Info' and text:
+                    parsed_player = parse_player_name(text)
+                    player_data['Player Name'] = parsed_player['name']
+                    player_data['Team'] = parsed_player['team']
+                    player_data['Position'] = parsed_player['position']
+                else:
+                    player_data[header] = text
+            
+            # Skip TOTALS rows and empty rows
+            if player_data and player_data.get('Player Name', '').strip() not in ['TOTALS', 'MOVE', '']:
+                # Determine player status based on position and other indicators
+                status = determine_player_status(player_data, len(players), len(rows))
+                player_data['Roster Status'] = status
+                players.append(player_data)
+        
+        print(f"Successfully extracted {len(players)} players")
+        return {
+            "team_id": "8",
+            "players": players,
+            "status": "loaded",
+            "url": page.url
+        }
+        
     except Exception as e:
         print(f"Error extracting team data: {e}")
-        # Try to get any player-related data
-        try:
-            player_elements = page.query_selector_all("[class*='player'], [class*='Player']")
-            for element in player_elements[:10]:  # First 10 player elements
-                text = element.inner_text().strip()
-                if text and len(text) > 2:
-                    team_data.append([text])
-        except:
-            pass
-    
-    return team_data
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def display_team_data(team_id: str, team_data):
-    """Display team data in a formatted way"""
-    if not team_data:
+    """Display team data in a formatted way using tabular format"""
+    if not team_data or not team_data.get('players'):
         print(f"No team data found for team {team_id}")
         return
     
-    print(f"\n{'='*60}")
-    print(f"TEAM {team_id} ROSTER")
-    print(f"{'='*60}")
+    players = team_data['players']
     
-    for i, player in enumerate(team_data, 1):
-        if len(player) == 1:
-            print(f"{i:2d}. {player[0]}")
-        else:
-            # Format multi-column data
-            player_info = " | ".join(player)
-            print(f"{i:2d}. {player_info}")
+    if not players:
+        print("No player data to display")
+        return
     
-    print(f"{'='*60}")
-    print(f"Total players found: {len(team_data)}")
-    print(f"{'='*60}\n")
+    # Define preferred column order for better display (excluding Action and Player_Info)
+    preferred_columns = [
+        'Player Name', 'Team', 'Position', 'Roster Status', 'Opponent', 'Game Time', 
+        'Projected Points', 'Points', 'Avg Points', 'Last Game', 'Rank', 
+        'Ownership %', 'Start %', 'Status', 'Trend', 'Notes'
+    ]
+    
+    # Get all available columns from the data
+    all_headers = set()
+    for player in players:
+        all_headers.update(player.keys())
+    
+    # Remove unwanted columns
+    all_headers.discard('Action')
+    all_headers.discard('Player_Info')
+    
+    # Create ordered headers list
+    headers = []
+    for col in preferred_columns:
+        if col in all_headers:
+            headers.append(col)
+            all_headers.remove(col)
+    
+    # Add any remaining columns
+    headers.extend(sorted(all_headers))
+    
+    # Prepare table data
+    table_data = []
+    for i, player in enumerate(players):
+        row = []
+        for header in headers:
+            if header in player and player[header].strip():
+                # Truncate long text for better table display
+                text = str(player[header])
+                if len(text) > 25:
+                    text = text[:22] + "..."
+                row.append(text)
+            else:
+                row.append("")
+        table_data.append(row)
+    
+    print(f"\n--- Fantasy Football Team {team_id} Roster ({len(players)} players) ---")
+    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[25]*len(headers)))
+    
+    print(f"\nTotal columns: {len(headers)}")
+    print(f"Total players: {len(players)}")
 
 
 def add_dump_teams_arguments(parser: argparse.ArgumentParser):
