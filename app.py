@@ -5,9 +5,9 @@ Fantasy Football Manager - AI-powered team management
 
 import argparse
 import sys
-from modules.login import login_command
-from modules.dump_teams import dump_teams_command, add_dump_teams_arguments
-from modules.list_teams import list_teams_command, add_list_teams_arguments
+from actions.login import login_command
+from actions.dump_teams import dump_teams_command, add_dump_teams_arguments
+from actions.list_teams import list_teams_command, add_list_teams_arguments
 
 
 def main():
