@@ -9,7 +9,6 @@ from typing import Dict, List, Optional, Any
 from tabulate import tabulate
 from sources import fetch_roster as source_fetch_roster, fetch_teams as source_fetch_teams
 from transformers import to_canonical_roster
-from logging_config import get_terminal
 from exceptions import FileOperationError
 
 logger = logging.getLogger(__name__)

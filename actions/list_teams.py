@@ -4,7 +4,6 @@ List teams action - CLI interface for displaying all league teams and their IDs
 
 import logging
 from core_data import ff_data
-from logging_config import get_terminal
 from exceptions import DataValidationError, FileOperationError
 
 logger = logging.getLogger(__name__)
@@ -28,19 +27,16 @@ def validate_teams_data(teams_list, input_file):
 
 def display_teams_info(teams_list):
     """Display teams information in tabular format"""
-    terminal = get_terminal()
     logger.info(f"Displaying {len(teams_list)} teams")
-    terminal.info(f"Found {len(teams_list)} teams:")
-    terminal.info("")  # Empty line for spacing
+    print(f"Found {len(teams_list)} teams:")
+    print()  # Empty line for spacing
     ff_data.display_teams_table(teams_list)
 
 
 def list_teams_command(args):
     """Handle list-teams command"""
-    terminal = get_terminal()
-    
     logger.info("Starting list-teams command")
-    terminal.progress("Listing all teams...")
+    print("→ Listing all teams...")
     
     # Use input file if provided, otherwise use default
     input_file = args.input or "html_input/teams_table.html"
@@ -54,5 +50,5 @@ def list_teams_command(args):
     display_teams_info(teams_list)
     
     logger.info("list-teams command completed successfully")
-    terminal.success("Teams listed successfully")
+    print("✓ Teams listed successfully")
 

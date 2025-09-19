@@ -8,7 +8,6 @@ import sys
 import logging
 import logging.config
 import os
-from logging_config import get_terminal
 from exceptions import FantasyFootballManagerError
 from actions.login import login_command
 from actions.dump_teams import dump_teams_command, add_dump_teams_arguments
@@ -80,7 +79,6 @@ def main():
     # Set up logging
     setup_logging()
     logger = logging.getLogger(__name__)
-    terminal = get_terminal()
     
     logger.info("Fantasy Football Manager starting up")
     
@@ -90,7 +88,6 @@ def main():
         epilog="""
 Examples:
   ffm login                    # Login to ESPN Fantasy Football
-  ffm roster                  # Display your current roster
   ffm list-teams              # List all teams and their IDs
   ffm dump-teams -t 8         # Export team 8 roster to terminal
   ffm dump-teams -t 8 9 10    # Export multiple teams to terminal
@@ -142,19 +139,19 @@ Examples:
     except FantasyFootballManagerError as e:
         # Application-specific errors - log and show user-friendly message
         logger.exception(f"Application error in command '{args.command}': {e}")
-        terminal.error(f"Error: {e}")
-        terminal.info(f"Check logs/fantasy_football_manager.log for detailed information")
+        print(f"✗ Error: {e}", file=sys.stderr)
+        print("Check logs/fantasy_football_manager.log for detailed information")
         sys.exit(1)
     except KeyboardInterrupt:
         # User interrupted - clean exit
         logger.info("Command interrupted by user")
-        terminal.warning("Operation cancelled by user")
+        print("⚠ Operation cancelled by user")
         sys.exit(0)
     except Exception as e:
         # Unexpected errors - log full traceback and show generic message
         logger.exception(f"Unexpected error in command '{args.command}': {e}")
-        terminal.error("An unexpected error occurred")
-        terminal.info(f"Check logs/fantasy_football_manager.log for detailed information")
+        print("✗ An unexpected error occurred", file=sys.stderr)
+        print("Check logs/fantasy_football_manager.log for detailed information")
         sys.exit(1)
 
 

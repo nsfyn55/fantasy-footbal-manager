@@ -5,7 +5,6 @@ Dump teams action - CLI interface for exporting team rosters to CSV
 import argparse
 import logging
 from core_data import ff_data
-from logging_config import get_terminal
 from exceptions import DataValidationError, FileOperationError
 
 logger = logging.getLogger(__name__)
@@ -67,10 +66,8 @@ def handle_team_export(team_id, team_data, output_path, format, export_csv):
 
 def dump_single_team(team_id: str, source: str = 'espn', output_path: str = None, format: str = 'csv', export_csv: bool = False):
     """Dump a single team's data"""
-    terminal = get_terminal()
-    
     logger.info(f"Dumping team ID: {team_id} from {source}")
-    terminal.progress(f"Dumping team {team_id} from {source}")
+    print(f"→ Dumping team {team_id} from {source}")
     
     # Fetch team data - let exceptions propagate
     team_data = ff_data.get_roster(team_id, source)
@@ -84,19 +81,17 @@ def dump_single_team(team_id: str, source: str = 'espn', output_path: str = None
         handle_team_export(team_id, team_data, output_path, format, export_csv)
     
     logger.info(f"Team {team_id} data extraction completed successfully")
-    terminal.success(f"Team {team_id} data extraction completed")
+    print(f"✓ Team {team_id} data extraction completed")
     return True
 
 
 def dump_teams_command(args):
     """Handle dump-teams command"""
-    terminal = get_terminal()
-    
     logger.info("Starting dump-teams command")
-    terminal.progress("Dumping teams...")
+    print("→ Dumping teams...")
     
     if not args.team:
-        terminal.warning("No teams specified. Use --team to specify team IDs.")
+        print("⚠ No teams specified. Use --team to specify team IDs.")
         return
     
     # Process each team - let exceptions propagate to global handler
@@ -111,4 +106,4 @@ def dump_teams_command(args):
         )
     
     logger.info("dump-teams command completed successfully")
-    terminal.success("All teams processed successfully")
+    print("✓ All teams processed successfully")

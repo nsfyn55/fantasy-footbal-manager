@@ -9,7 +9,6 @@ import subprocess
 import psutil
 import logging
 from playwright.sync_api import sync_playwright
-from logging_config import get_terminal
 from exceptions import AuthenticationError, BrowserOperationError, ConfigurationError, FileOperationError
 
 logger = logging.getLogger(__name__)
@@ -91,15 +90,13 @@ def check_chrome_running():
 
 def launch_chrome():
     """Launch Chrome with remote debugging if not already running"""
-    terminal = get_terminal()
-    
     if check_chrome_running():
         logger.info("Chrome with remote debugging is already running")
-        terminal.info("Chrome with remote debugging is already running")
+        print("Chrome with remote debugging is already running")
         return True
     
     logger.info("Launching Chrome with remote debugging")
-    terminal.progress("Launching Chrome with remote debugging...")
+    print("→ Launching Chrome with remote debugging...")
     
     try:
         chrome_cmd = [
@@ -116,17 +113,17 @@ def launch_chrome():
         
         # Wait for Chrome to start
         logger.info("Waiting for Chrome to start")
-        terminal.progress("Waiting for Chrome to start...")
+        print("→ Waiting for Chrome to start...")
         time.sleep(3)
         
         # Verify it's running
         if check_chrome_running():
             logger.info("Chrome launched successfully")
-            terminal.success("Chrome launched successfully!")
+            print("✓ Chrome launched successfully!")
             return True
         else:
             logger.error("Failed to launch Chrome")
-            terminal.error("Failed to launch Chrome")
+            print("✗ Failed to launch Chrome")
             raise BrowserOperationError("Failed to launch Chrome with remote debugging")
             
     except Exception as e:
@@ -303,10 +300,8 @@ def validate_credentials(credentials):
 
 def login_command(args):
     """Handle login command"""
-    terminal = get_terminal()
-    
     logger.info("Starting login command")
-    terminal.progress("Logging in...")
+    print("→ Logging in...")
     
     # Load and validate credentials - let exceptions propagate
     credentials = load_credentials()
@@ -316,4 +311,4 @@ def login_command(args):
     perform_login(credentials)
     
     logger.info("Login command completed successfully")
-    terminal.success("Login successful!")
+    print("✓ Login successful!")
