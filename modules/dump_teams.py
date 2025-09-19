@@ -166,9 +166,9 @@ def fetch_team_data(team_id: str):
             print(f"Navigating to: {team_url}")
             page.goto(team_url)
             
-            # Wait for the page to load
-            page.wait_for_load_state("networkidle")
-            time.sleep(3)
+            # Wait for the page to load (optimized - much faster)
+            page.wait_for_load_state("domcontentloaded")
+            time.sleep(2)
             
             # Extract team data
             team_data = extract_team_data_from_page(page)
