@@ -7,6 +7,7 @@ import argparse
 import sys
 from modules.login import login_command
 from modules.dump_teams import dump_teams_command, add_dump_teams_arguments
+from modules.list_teams import list_teams_command, add_list_teams_arguments
 
 
 def main():
@@ -18,6 +19,7 @@ def main():
 Examples:
   ffm login                    # Login to ESPN Fantasy Football
   ffm roster                  # Display your current roster
+  ffm list-teams              # List all teams and their IDs
   ffm dump-teams -t 8         # Export team 8 roster to terminal
   ffm dump-teams -t 8 9 10    # Export multiple teams to terminal
         """
@@ -28,6 +30,11 @@ Examples:
     # Login command
     login_parser = subparsers.add_parser('login', help='Login to ESPN Fantasy Football')
     login_parser.set_defaults(func=login_command)
+    
+    # List teams command
+    list_teams_parser = subparsers.add_parser('list-teams', help='List all teams and their IDs')
+    add_list_teams_arguments(list_teams_parser)
+    list_teams_parser.set_defaults(func=list_teams_command)
     
     # Dump teams command
     dump_teams_parser = subparsers.add_parser('dump-teams', help='Export opponent teams to CSV')
