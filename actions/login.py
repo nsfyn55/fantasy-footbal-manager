@@ -98,9 +98,113 @@ def launch_chrome():
         print(f"Error launching Chrome: {e}")
         return False
 
+def check_existing_session(page, credentials):
+    """Check if already logged in by trying to access team page"""
+    print("Checking if already logged in...")
+    team_url = f"https://fantasy.espn.com/football/team?leagueId={credentials.get('league_id', '1922964857')}&teamId={credentials.get('team_id', '8')}&seasonId=2025"
+    page.goto(team_url)
+    time.sleep(3)
+    
+    # Check if we're on the team page (not redirected to login)
+    if "fantasy.espn.com/football/team" in page.url:
+        print("Already logged in! Session restored successfully.")
+        return True
+    return False
+
+
+def find_form_field_in_iframes(page, selector, field_type="email"):
+    """Find form field in iframes and return field and iframe"""
+    print(f"Looking for {field_type} input field in iframes...")
+    iframes = page.query_selector_all("iframe")
+    print(f"Found {len(iframes)} iframes on the page")
+    
+    for i, iframe in enumerate(iframes):
+        try:
+            print(f"Checking iframe {i+1}...")
+            iframe_content = iframe.content_frame()
+            if iframe_content:
+                field = iframe_content.query_selector(selector)
+                if field and field.is_visible():
+                    print(f"Found {field_type} field in iframe {i+1}")
+                    return field, iframe_content
+        except Exception as e:
+            print(f"Could not access iframe {i+1}: {e}")
+            continue
+    
+    return None, None
+
+
+def handle_email_step(page, credentials):
+    """Handle email entry step of login"""
+    email_field, iframe_with_form = find_form_field_in_iframes(page, "#InputIdentityFlowValue", "email")
+    if not email_field:
+        print("Could not find email field")
+        return False
+    
+    print("Entering email...")
+    email_field.fill(credentials['username'])
+    
+    print("Looking for Continue button...")
+    continue_button = iframe_with_form.query_selector("#BtnSubmit")
+    if not continue_button:
+        print("Could not find Continue button")
+        return False
+    
+    print("Clicking Continue button...")
+    continue_button.click()
+    print("Email entered and Continue clicked!")
+    return True
+
+
+def handle_password_step(page, credentials):
+    """Handle password entry step of login"""
+    print("Waiting for password field to appear...")
+    time.sleep(3)
+    
+    password_field, iframe_with_form = find_form_field_in_iframes(page, "input[type='password']", "password")
+    if not password_field:
+        print("Could not find password field")
+        return False
+    
+    print("Entering password...")
+    password_field.fill(credentials['password'])
+    
+    print("Looking for login button...")
+    login_button = iframe_with_form.query_selector("button[type='submit']")
+    if not login_button:
+        print("Could not find login button")
+        return False
+    
+    print("Clicking login button...")
+    login_button.click()
+    print("Password entered and login button clicked!")
+    return True
+
+
+def navigate_to_login_page(page):
+    """Navigate to ESPN Fantasy login page"""
+    print("Navigating to ESPN Fantasy page...")
+    page.goto("https://www.espn.com/fantasy/#")
+    
+    print("Waiting for login icon to load...")
+    page.wait_for_selector("#global-user-trigger", timeout=10000)
+    
+    print("Clicking the login icon...")
+    page.click("#global-user-trigger")
+    
+    print("Waiting for dropdown to expand...")
+    time.sleep(2)
+    
+    print("Clicking the 'Log In' link in dropdown...")
+    page.click("a[data-affiliatename='espn'][data-behavior='overlay']:has-text('Log In')")
+    
+    print("Waiting for login form to load...")
+    time.sleep(3)
+
+
 def perform_login(credentials):
     """Perform the actual login using Playwright with session persistence"""
-    # Ensure Chrome is running
+    # Guard clause: ensure Chrome is running
     if not launch_chrome():
         print("Failed to launch Chrome. Please start Chrome manually with remote debugging.")
         return False
@@ -115,114 +219,22 @@ def perform_login(credentials):
             context = browser.new_context(storage_state=session_state)
             page = context.new_page()
             
-            # Check if already logged in by trying to access team page
-            print("Checking if already logged in...")
-            team_url = f"https://fantasy.espn.com/football/team?leagueId={credentials.get('league_id', '1922964857')}&teamId={credentials.get('team_id', '8')}&seasonId=2025"
-            page.goto(team_url)
-            time.sleep(3)
-            
-            # Check if we're on the team page (not redirected to login)
-            if "fantasy.espn.com/football/team" in page.url:
-                print("Already logged in! Session restored successfully.")
+            # Guard clause: check if already logged in
+            if check_existing_session(page, credentials):
                 save_session(context)
                 return True
             
             print("Not logged in, performing login...")
             
-            # Navigate to ESPN Fantasy page for login
-            page.goto("https://www.espn.com/fantasy/#")
-
-            print("Navigating to ESPN Fantasy page...")
-            page.goto("https://www.espn.com/fantasy/#")
-
-            print("Waiting for login icon to load...")
-            page.wait_for_selector("#global-user-trigger", timeout=10000)
-
-            print("Clicking the login icon...")
-            page.click("#global-user-trigger")
-
-            print("Waiting for dropdown to expand...")
-            time.sleep(2)
-
-            print("Clicking the 'Log In' link in dropdown...")
-            page.click("a[data-affiliatename='espn'][data-behavior='overlay']:has-text('Log In')")
-
-            print("Waiting for login form to load...")
-            time.sleep(3)
-
-            print("Looking for email input field in iframes...")
-            iframes = page.query_selector_all("iframe")
-            print(f"Found {len(iframes)} iframes on the page")
+            # Navigate to login page
+            navigate_to_login_page(page)
             
-            email_field = None
-            iframe_with_form = None
-            
-            for i, iframe in enumerate(iframes):
-                try:
-                    print(f"Checking iframe {i+1}...")
-                    iframe_content = iframe.content_frame()
-                    if iframe_content:
-                        email_field = iframe_content.query_selector("#InputIdentityFlowValue")
-                        if email_field and email_field.is_visible():
-                            print(f"Found email field in iframe {i+1}")
-                            iframe_with_form = iframe_content
-                            break
-                except Exception as e:
-                    print(f"Could not access iframe {i+1}: {e}")
-                    continue
-            
-            if not email_field:
-                print("Could not find email field")
+            # Guard clause: handle email step
+            if not handle_email_step(page, credentials):
                 return False
             
-            print("Entering email...")
-            email_field.fill(credentials['username'])
-            
-            print("Looking for Continue button...")
-            continue_button = iframe_with_form.query_selector("#BtnSubmit")
-            if continue_button:
-                print("Clicking Continue button...")
-                continue_button.click()
-                print("Email entered and Continue clicked!")
-            else:
-                print("Could not find Continue button")
-                return False
-            
-            print("Waiting for password field to appear...")
-            time.sleep(3)
-            
-            print("Looking for password field in iframes...")
-            password_field = None
-            
-            for i, iframe in enumerate(iframes):
-                try:
-                    print(f"Checking iframe {i+1} for password field...")
-                    iframe_content = iframe.content_frame()
-                    if iframe_content:
-                        password_field = iframe_content.query_selector("input[type='password']")
-                        if password_field and password_field.is_visible():
-                            print(f"Found password field in iframe {i+1}")
-                            iframe_with_form = iframe_content
-                            break
-                except Exception as e:
-                    print(f"Could not access iframe {i+1}: {e}")
-                    continue
-            
-            if not password_field:
-                print("Could not find password field")
-                return False
-            
-            print("Entering password...")
-            password_field.fill(credentials['password'])
-            
-            print("Looking for login button...")
-            login_button = iframe_with_form.query_selector("button[type='submit']")
-            if login_button:
-                print("Clicking login button...")
-                login_button.click()
-                print("Password entered and login button clicked!")
-            else:
-                print("Could not find login button")
+            # Guard clause: handle password step
+            if not handle_password_step(page, credentials):
                 return False
             
             print("Waiting for login to complete...")
@@ -239,7 +251,6 @@ def perform_login(credentials):
             
             print("Login complete and session saved!")
             print("You can now use other commands without logging in again.")
-
             return True
 
         except Exception as e:
@@ -247,15 +258,24 @@ def perform_login(credentials):
             return False
 
 
+def validate_credentials(credentials):
+    """Validate that credentials were successfully loaded"""
+    if not credentials:
+        print("Could not load credentials. Please check .fantasy-football-manager/credentials file.")
+        return False
+    return True
+
+
 def login_command(args):
     """Handle login command"""
     print("Logging in...")
     
+    # Guard clause: validate credentials
     credentials = load_credentials()
-    if not credentials:
-        print("Could not load credentials. Please check .fantasy-football-manager/credentials file.")
+    if not validate_credentials(credentials):
         return
     
+    # Perform login and report result
     if perform_login(credentials):
         print("Login successful!")
     else:
