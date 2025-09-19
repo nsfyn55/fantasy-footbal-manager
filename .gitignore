@@ -39,6 +39,9 @@ venv.bak/
 data/*.csv
 data/*.json
 
+# Output files
+output/
+
 # Playwright
 test-results/
 playwright-report/

@@ -5,9 +5,28 @@ Dump teams module for exporting opponent team data to CSV
 import sys
 import time
 import argparse
+import csv
+import os
 from typing import List, Optional
 from playwright.sync_api import sync_playwright
 from tabulate import tabulate
+
+
+# Team ID to Manager mapping for analytics
+TEAM_MANAGERS = {
+    "1": "Manager1",
+    "2": "Manager2", 
+    "3": "Manager3",
+    "4": "Manager4",
+    "5": "Manager5",
+    "6": "Manager6",
+    "7": "Manager7",
+    "8": "Manager8",
+    "9": "Manager9",
+    "10": "Manager10",
+    "11": "Manager11",
+    "12": "Manager12"
+}
 
 
 def parse_player_name(full_text):
@@ -114,9 +133,14 @@ def dump_teams_command(args):
         if args.team:
             # Dump specific teams
             for team_id in args.team:
-                print(f"\nDumping team ID: {team_id}")
-                team_data = fetch_team_data(team_id)
-                display_team_data(team_id, team_data)
+                success = dump_single_team(
+                    team_id=team_id,
+                    output_path=args.output,
+                    format=args.format,
+                    export_csv=args.csv
+                )
+                if not success:
+                    print(f"Failed to dump team {team_id}")
         else:
             # Dump all teams (for now, just dump team 8 as example)
             print("Dumping all teams (starting with team 8)...")
@@ -143,6 +167,88 @@ def load_session():
         except Exception as e:
             print(f"Error loading session: {e}")
     return None
+
+
+def export_team_to_csv(team_id: str, team_data, filename: str = None):
+    """Export team data to CSV with Manager column for analytics"""
+    if not team_data or not team_data.get('players'):
+        print(f"No team data found for team {team_id}")
+        return None
+    
+    players = team_data['players']
+    # Use manager name from team data if available, otherwise fallback to mapping
+    manager = team_data.get('manager_name') or TEAM_MANAGERS.get(team_id, f"Manager{team_id}")
+    
+    if not filename:
+        # Default to output folder
+        filename = f"output/team_{team_id}_roster.csv"
+    elif not filename.startswith('/') and not filename.startswith('./') and not filename.startswith('../'):
+        # If it's a relative path and doesn't specify output folder, put it in output
+        if not filename.startswith('output/'):
+            filename = f"output/{filename}"
+    
+    # Define preferred column order with Manager first for analytics
+    csv_columns = [
+        'Manager', 'Team_ID', 'Player Name', 'Team', 'Position', 'Roster Status', 
+        'Opponent', 'Game Time', 'Projected Points', 'Points', 'Avg Points', 
+        'Last Game', 'Rank', 'Ownership %', 'Start %', 'Status', 'Trend', 'Notes'
+    ]
+    
+    # Get all available columns from the data
+    all_headers = set()
+    for player in players:
+        all_headers.update(player.keys())
+    
+    # Remove unwanted columns
+    all_headers.discard('Action')
+    all_headers.discard('Player_Info')
+    
+    # Create ordered headers list
+    headers = []
+    for col in csv_columns:
+        if col in all_headers:
+            headers.append(col)
+            all_headers.remove(col)
+    
+    # Add any remaining columns
+    headers.extend(sorted(all_headers))
+    
+    # Ensure Manager and Team_ID are first
+    if 'Manager' not in headers:
+        headers.insert(0, 'Manager')
+    if 'Team_ID' not in headers:
+        headers.insert(1, 'Team_ID')
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=headers)
+            writer.writeheader()
+            
+            for player in players:
+                # Create a copy of player data and add Manager and Team_ID
+                row_data = player.copy()
+                row_data['Manager'] = manager
+                row_data['Team_ID'] = team_id
+                
+                # Clean up data for CSV
+                cleaned_row = {}
+                for header in headers:
+                    value = row_data.get(header, '')
+                    # Convert to string and handle None values
+                    if value is None:
+                        cleaned_row[header] = ''
+                    else:
+                        cleaned_row[header] = str(value).strip()
+                
+                writer.writerow(cleaned_row)
+        
+        print(f"✅ Exported {len(players)} players to {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f"❌ Error exporting to CSV: {e}")
+        return None
+
 
 def fetch_team_data(team_id: str):
     """Fetch team data from ESPN Fantasy Football using headless browser"""
@@ -173,6 +279,11 @@ def fetch_team_data(team_id: str):
             # Extract team data
             team_data = extract_team_data_from_page(page)
             
+            # Get manager name from page
+            if team_data:
+                manager_name = get_manager_name_from_page(page, team_id)
+                team_data['manager_name'] = manager_name
+            
             # Close browser
             browser.close()
             
@@ -181,6 +292,41 @@ def fetch_team_data(team_id: str):
         except Exception as e:
             print(f"Error fetching team data: {e}")
             raise
+
+
+def get_manager_name_from_page(page, team_id):
+    """Extract manager name from the team page"""
+    try:
+        # Look for manager name in common locations
+        manager_selectors = [
+            "h1",  # Often the team name/manager name is in h1
+            ".team-name",
+            ".manager-name", 
+            "[data-testid='team-name']",
+            ".team-header h1",
+            ".team-header h2"
+        ]
+        
+        for selector in manager_selectors:
+            try:
+                element = page.query_selector(selector)
+                if element:
+                    text = element.inner_text().strip()
+                    if text and len(text) > 0:
+                        # Clean up the text - remove team numbers, extra whitespace
+                        text = text.replace(f"Team {team_id}", "").strip()
+                        if text:
+                            print(f"Found manager name: {text}")
+                            return text
+            except:
+                continue
+        
+        # Fallback to TEAM_MANAGERS mapping
+        return TEAM_MANAGERS.get(team_id, f"Manager{team_id}")
+        
+    except Exception as e:
+        print(f"Error extracting manager name: {e}")
+        return TEAM_MANAGERS.get(team_id, f"Manager{team_id}")
 
 
 def extract_team_data_from_page(page):
@@ -378,8 +524,12 @@ def add_dump_teams_arguments(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         '--output', '-o',
-        default='data/teams.csv',
-        help='Output CSV file path (default: data/teams.csv)'
+        help='Output CSV file path (default: output/team_{id}_roster.csv)'
+    )
+    parser.add_argument(
+        '--csv',
+        action='store_true',
+        help='Export team data to CSV with Manager column for analytics'
     )
     parser.add_argument(
         '--format',
@@ -389,10 +539,29 @@ def add_dump_teams_arguments(parser: argparse.ArgumentParser):
     )
 
 
-def dump_single_team(team_id: str, output_path: str, format: str):
+def dump_single_team(team_id: str, output_path: str = None, format: str = 'csv', export_csv: bool = False):
     """Dump a single team's data"""
-    # TODO: Implement single team dumping
-    pass
+    print(f"Dumping team ID: {team_id}")
+    
+    # Fetch team data
+    team_data = fetch_team_data(team_id)
+    
+    if not team_data:
+        print(f"Failed to fetch data for team {team_id}")
+        return False
+    
+    # Display team data
+    display_team_data(team_id, team_data)
+    
+    # Export to CSV if requested
+    if export_csv or format == 'csv':
+        csv_filename = export_team_to_csv(team_id, team_data, output_path)
+        if csv_filename:
+            print(f"Team data exported to: {csv_filename}")
+            return True
+    
+    print("Team data extraction completed successfully!")
+    return True
 
 
 def dump_multiple_teams(team_ids: List[str], output_path: str, format: str):
