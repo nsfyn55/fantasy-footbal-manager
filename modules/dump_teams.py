@@ -297,9 +297,12 @@ def fetch_team_data(team_id: str):
 def get_manager_name_from_page(page, team_id):
     """Extract manager name from the team page"""
     try:
-        # Look for manager name in common locations
+        # Look for manager name using the specific selector from ESPN team page
         manager_selectors = [
-            "h1",  # Often the team name/manager name is in h1
+            ".teamName.truncate",  # Primary selector from ESPN team page
+            ".teamName",           # Fallback without truncate class
+            "span.teamName",       # More specific span selector
+            "h1",                  # Often the team name/manager name is in h1
             ".team-name",
             ".manager-name", 
             "[data-testid='team-name']",
