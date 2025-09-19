@@ -4,10 +4,15 @@ Provides clean API for data extraction and processing
 """
 
 import os
+import logging
 from typing import Dict, List, Optional, Any
 from tabulate import tabulate
 from sources import fetch_roster as source_fetch_roster, fetch_teams as source_fetch_teams
 from transformers import to_canonical_roster
+from logging_config import get_terminal
+from exceptions import FileOperationError
+
+logger = logging.getLogger(__name__)
 
 
 class FantasyFootballData:
@@ -72,11 +77,7 @@ class FantasyFootballData:
         """
         rosters = {}
         for team_id in team_ids:
-            try:
-                rosters[team_id] = self.get_roster(team_id)
-            except Exception as e:
-                print(f"Warning: Failed to fetch roster for team {team_id}: {e}")
-                rosters[team_id] = None
+            rosters[team_id] = self.get_roster(team_id)
         return rosters
     
     def export_team_to_csv(self, team_id: str, team_data: Dict[str, Any], 
@@ -155,8 +156,16 @@ class FantasyFootballData:
             
             return filename
             
+        except (FileNotFoundError, PermissionError) as e:
+            logger.error(f"File system error exporting team {team_id} to CSV: {e}")
+            raise FileOperationError(f"Cannot write CSV file for team {team_id}: {e}") from e
+        except (OSError, IOError) as e:
+            logger.error(f"I/O error exporting team {team_id} to CSV: {e}")
+            raise FileOperationError(f"I/O error writing CSV for team {team_id}: {e}") from e
         except Exception as e:
-            raise RuntimeError(f"Error exporting to CSV: {e}")
+            # Catch unexpected errors and convert to meaningful exception
+            logger.exception(f"Unexpected error exporting team {team_id} to CSV: {e}")
+            raise FileOperationError(f"Failed to export team {team_id} to CSV: {e}") from e
     
     def display_teams_table(self, teams: List[Dict[str, str]]) -> None:
         """Display teams in tabular format"""

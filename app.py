@@ -5,13 +5,85 @@ Fantasy Football Manager - AI-powered team management
 
 import argparse
 import sys
+import logging
+import logging.config
+import os
+from logging_config import get_terminal
+from exceptions import FantasyFootballManagerError
 from actions.login import login_command
 from actions.dump_teams import dump_teams_command, add_dump_teams_arguments
 from actions.list_teams import list_teams_command, add_list_teams_arguments
 
 
+def setup_logging(log_level: str = "INFO"):
+    """Set up logging from YAML configuration"""
+    # Ensure logs directory exists
+    os.makedirs("logs", exist_ok=True)
+    
+    # Load YAML configuration
+    try:
+        logging.config.dictConfig({
+            'version': 1,
+            'disable_existing_loggers': False,
+            'formatters': {
+                'standard': {
+                    'format': '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+                    'datefmt': '%Y-%m-%d %H:%M:%S'
+                },
+                'simple': {
+                    'format': '%(levelname)s - %(name)s - %(message)s'
+                }
+            },
+            'handlers': {
+                'console': {
+                    'class': 'logging.StreamHandler',
+                    'level': 'WARNING',
+                    'formatter': 'simple',
+                    'stream': 'ext://sys.stderr'
+                },
+                'file': {
+                    'class': 'logging.handlers.RotatingFileHandler',
+                    'level': log_level,
+                    'formatter': 'standard',
+                    'filename': 'logs/fantasy_football_manager.log',
+                    'maxBytes': 10485760,  # 10MB
+                    'backupCount': 5,
+                    'encoding': 'utf8'
+                }
+            },
+            'loggers': {
+                'fantasy_football_manager': {
+                    'level': log_level,
+                    'handlers': ['console', 'file'],
+                    'propagate': False
+                }
+            },
+            'root': {
+                'level': log_level,
+                'handlers': ['console', 'file']
+            }
+        })
+    except Exception as e:
+        # Fallback to basic logging if YAML fails
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/fantasy_football_manager.log'),
+                logging.StreamHandler(sys.stderr)
+            ]
+        )
+
+
 def main():
     """Main CLI entry point"""
+    # Set up logging
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    terminal = get_terminal()
+    
+    logger.info("Fantasy Football Manager starting up")
+    
     parser = argparse.ArgumentParser(
         description="Fantasy Football Manager - AI-powered team management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -23,6 +95,14 @@ Examples:
   ffm dump-teams -t 8         # Export team 8 roster to terminal
   ffm dump-teams -t 8 9 10    # Export multiple teams to terminal
         """
+    )
+    
+    # Add logging level argument
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='Set logging level (default: INFO)'
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -48,11 +128,33 @@ Examples:
         parser.print_help()
         return
     
-    # Execute the command
+    # Reconfigure logging with user-specified level if different
+    if hasattr(args, 'log_level') and args.log_level != 'INFO':
+        setup_logging(log_level=args.log_level)
+        logger = logging.getLogger(__name__)
+    
+    logger.info(f"Executing command: {args.command}")
+    
+    # Execute the command with global exception handling
     try:
         args.func(args)
+        logger.info(f"Command '{args.command}' completed successfully")
+    except FantasyFootballManagerError as e:
+        # Application-specific errors - log and show user-friendly message
+        logger.exception(f"Application error in command '{args.command}': {e}")
+        terminal.error(f"Error: {e}")
+        terminal.info(f"Check logs/fantasy_football_manager.log for detailed information")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        # User interrupted - clean exit
+        logger.info("Command interrupted by user")
+        terminal.warning("Operation cancelled by user")
+        sys.exit(0)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        # Unexpected errors - log full traceback and show generic message
+        logger.exception(f"Unexpected error in command '{args.command}': {e}")
+        terminal.error("An unexpected error occurred")
+        terminal.info(f"Check logs/fantasy_football_manager.log for detailed information")
         sys.exit(1)
 
 

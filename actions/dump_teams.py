@@ -3,7 +3,12 @@ Dump teams action - CLI interface for exporting team rosters to CSV
 """
 
 import argparse
+import logging
 from core_data import ff_data
+from logging_config import get_terminal
+from exceptions import DataValidationError, FileOperationError
+
+logger = logging.getLogger(__name__)
 
 
 def add_dump_teams_arguments(parser):
@@ -40,8 +45,8 @@ def add_dump_teams_arguments(parser):
 def validate_team_data(team_data, team_id):
     """Validate that team data was successfully fetched"""
     if not team_data:
-        print(f"Failed to fetch data for team {team_id}")
-        return False
+        logger.error(f"Failed to fetch data for team {team_id}")
+        raise DataValidationError(f"No data available for team {team_id}")
     return True
 
 
@@ -50,58 +55,60 @@ def handle_team_export(team_id, team_data, output_path, format, export_csv):
     if not (export_csv or format == 'csv'):
         return True
     
+    logger.info(f"Exporting team {team_id} data to CSV")
     csv_filename = ff_data.export_team_to_csv(team_id, team_data, output_path)
     if csv_filename:
-        print(f"Team data exported to: {csv_filename}")
+        logger.info(f"Team data exported to: {csv_filename}")
         return True
-    return False
+    
+    logger.error(f"Failed to export team {team_id} data to CSV")
+    raise FileOperationError(f"Could not export team {team_id} data to CSV")
 
 
 def dump_single_team(team_id: str, source: str = 'espn', output_path: str = None, format: str = 'csv', export_csv: bool = False):
     """Dump a single team's data"""
-    print(f"Dumping team ID: {team_id} from {source}")
+    terminal = get_terminal()
     
-    # Guard clause: handle data fetching failure
+    logger.info(f"Dumping team ID: {team_id} from {source}")
+    terminal.progress(f"Dumping team {team_id} from {source}")
+    
+    # Fetch team data - let exceptions propagate
     team_data = ff_data.get_roster(team_id, source)
-    if not validate_team_data(team_data, team_id):
-        return False
+    validate_team_data(team_data, team_id)
     
-    # Guard clause: handle display failure
-    try:
-        ff_data.display_roster_table(team_id, team_data)
-    except Exception as e:
-        print(f"Error displaying team {team_id}: {e}")
-        return False
+    # Display roster table - let exceptions propagate
+    ff_data.display_roster_table(team_id, team_data)
     
-    # Guard clause: handle export if needed
+    # Export if needed - let exceptions propagate
     if export_csv or format == 'csv':
-        if not handle_team_export(team_id, team_data, output_path, format, export_csv):
-            return False
+        handle_team_export(team_id, team_data, output_path, format, export_csv)
     
-    print("Team data extraction completed successfully!")
+    logger.info(f"Team {team_id} data extraction completed successfully")
+    terminal.success(f"Team {team_id} data extraction completed")
     return True
 
 
 def dump_teams_command(args):
     """Handle dump-teams command"""
-    print("Dumping teams...")
+    terminal = get_terminal()
     
-    try:
-        if args.team:
-            # Dump specific teams
-            for team_id in args.team:
-                success = dump_single_team(
-                    team_id=team_id,
-                    source=args.source,
-                    output_path=args.output,
-                    format=args.format,
-                    export_csv=args.csv
-                )
-                if not success:
-                    print(f"Failed to dump team {team_id}")
-        else:
-            print("No teams specified. Use --team to specify team IDs.")
-            
-    except Exception as e:
-        print(f"Error in dump-teams command: {e}")
-        raise
+    logger.info("Starting dump-teams command")
+    terminal.progress("Dumping teams...")
+    
+    if not args.team:
+        terminal.warning("No teams specified. Use --team to specify team IDs.")
+        return
+    
+    # Process each team - let exceptions propagate to global handler
+    for team_id in args.team:
+        logger.info(f"Processing team {team_id}")
+        dump_single_team(
+            team_id=team_id,
+            source=args.source,
+            output_path=args.output,
+            format=args.format,
+            export_csv=args.csv
+        )
+    
+    logger.info("dump-teams command completed successfully")
+    terminal.success("All teams processed successfully")

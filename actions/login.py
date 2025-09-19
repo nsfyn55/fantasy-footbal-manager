@@ -7,7 +7,12 @@ import os
 import json
 import subprocess
 import psutil
+import logging
 from playwright.sync_api import sync_playwright
+from logging_config import get_terminal
+from exceptions import AuthenticationError, BrowserOperationError, ConfigurationError, FileOperationError
+
+logger = logging.getLogger(__name__)
 
 
 def load_credentials():
@@ -20,10 +25,21 @@ def load_credentials():
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     credentials[key.strip()] = value.strip()
+        logger.info("Credentials loaded successfully")
         return credentials
+    except FileNotFoundError as e:
+        logger.error("Credentials file not found")
+        raise ConfigurationError("Credentials file not found at .fantasy-football-manager/credentials") from e
+    except PermissionError as e:
+        logger.error(f"Permission denied reading credentials: {e}")
+        raise ConfigurationError(f"Cannot access credentials file: {e}") from e
+    except (OSError, IOError) as e:
+        logger.error(f"I/O error reading credentials: {e}")
+        raise FileOperationError(f"I/O error reading credentials file: {e}") from e
     except Exception as e:
-        print(f"Error reading credentials: {e}")
-        return None
+        # Catch unexpected errors and convert to meaningful exception
+        logger.exception(f"Unexpected error reading credentials: {e}")
+        raise FileOperationError(f"Failed to read credentials file: {e}") from e
 
 
 def save_session(context):
@@ -33,11 +49,18 @@ def save_session(context):
         storage_state = context.storage_state()
         with open(".fantasy-football-manager/session.json", "w") as f:
             json.dump(storage_state, f)
-        print("Session saved successfully!")
+        logger.info("Session saved successfully")
         return True
+    except (PermissionError, OSError) as e:
+        logger.error(f"File system error saving session: {e}")
+        raise FileOperationError(f"Cannot save session file: {e}") from e
+    except (IOError, ValueError) as e:
+        logger.error(f"I/O error saving session: {e}")
+        raise FileOperationError(f"I/O error saving session: {e}") from e
     except Exception as e:
-        print(f"Error saving session: {e}")
-        return False
+        # Catch unexpected errors and convert to meaningful exception
+        logger.exception(f"Unexpected error saving session: {e}")
+        raise FileOperationError(f"Failed to save session: {e}") from e
 
 def load_session():
     """Load session state from file if it exists"""
@@ -45,9 +68,13 @@ def load_session():
     if os.path.exists(session_file):
         try:
             with open(session_file, "r") as f:
-                return json.load(f)
+                session_data = json.load(f)
+                logger.info("Session loaded successfully")
+                return session_data
         except Exception as e:
-            print(f"Error loading session: {e}")
+            logger.exception(f"Error loading session: {e}")
+            # Don't raise here - missing session is not fatal
+    logger.info("No session file found")
     return None
 
 def check_chrome_running():
@@ -64,11 +91,16 @@ def check_chrome_running():
 
 def launch_chrome():
     """Launch Chrome with remote debugging if not already running"""
+    terminal = get_terminal()
+    
     if check_chrome_running():
-        print("Chrome with remote debugging is already running")
+        logger.info("Chrome with remote debugging is already running")
+        terminal.info("Chrome with remote debugging is already running")
         return True
     
-    print("Launching Chrome with remote debugging...")
+    logger.info("Launching Chrome with remote debugging")
+    terminal.progress("Launching Chrome with remote debugging...")
+    
     try:
         chrome_cmd = [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -83,31 +115,34 @@ def launch_chrome():
                         stderr=subprocess.DEVNULL)
         
         # Wait for Chrome to start
-        print("Waiting for Chrome to start...")
+        logger.info("Waiting for Chrome to start")
+        terminal.progress("Waiting for Chrome to start...")
         time.sleep(3)
         
         # Verify it's running
         if check_chrome_running():
-            print("Chrome launched successfully!")
+            logger.info("Chrome launched successfully")
+            terminal.success("Chrome launched successfully!")
             return True
         else:
-            print("Failed to launch Chrome")
-            return False
+            logger.error("Failed to launch Chrome")
+            terminal.error("Failed to launch Chrome")
+            raise BrowserOperationError("Failed to launch Chrome with remote debugging")
             
     except Exception as e:
-        print(f"Error launching Chrome: {e}")
-        return False
+        logger.exception(f"Error launching Chrome: {e}")
+        raise BrowserOperationError(f"Failed to launch Chrome: {e}")
 
 def check_existing_session(page, credentials):
     """Check if already logged in by trying to access team page"""
-    print("Checking if already logged in...")
+    logger.info("Checking if already logged in")
     team_url = f"https://fantasy.espn.com/football/team?leagueId={credentials.get('league_id', '1922964857')}&teamId={credentials.get('team_id', '8')}&seasonId=2025"
     page.goto(team_url)
     time.sleep(3)
     
     # Check if we're on the team page (not redirected to login)
     if "fantasy.espn.com/football/team" in page.url:
-        print("Already logged in! Session restored successfully.")
+        logger.info("Already logged in - session restored successfully")
         return True
     return False
 
@@ -261,22 +296,24 @@ def perform_login(credentials):
 def validate_credentials(credentials):
     """Validate that credentials were successfully loaded"""
     if not credentials:
-        print("Could not load credentials. Please check .fantasy-football-manager/credentials file.")
-        return False
+        logger.error("Could not load credentials")
+        raise ConfigurationError("Could not load credentials. Please check .fantasy-football-manager/credentials file.")
     return True
 
 
 def login_command(args):
     """Handle login command"""
-    print("Logging in...")
+    terminal = get_terminal()
     
-    # Guard clause: validate credentials
+    logger.info("Starting login command")
+    terminal.progress("Logging in...")
+    
+    # Load and validate credentials - let exceptions propagate
     credentials = load_credentials()
-    if not validate_credentials(credentials):
-        return
+    validate_credentials(credentials)
     
-    # Perform login and report result
-    if perform_login(credentials):
-        print("Login successful!")
-    else:
-        print("Login failed!")
+    # Perform login - let exceptions propagate
+    perform_login(credentials)
+    
+    logger.info("Login command completed successfully")
+    terminal.success("Login successful!")
