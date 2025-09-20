@@ -267,3 +267,103 @@ def _parse_roster_row(html_row: str) -> Dict[str, str]:
                 row_data[column_name] = cell_text
     
     return row_data
+
+
+def fetch_players(session_state: Optional[Dict] = None, filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """
+    Fetch free agents/waiver players data from ESPN
+    
+    Args:
+        session_state: Optional saved session state for authentication
+        filters: Optional filters to apply (position, status, etc.)
+        
+    Returns:
+        Raw ESPN players data or None if failed
+    """
+    # Build URL with filters
+    players_url = "https://fantasy.espn.com/football/players/add?leagueId=1922964857&seasonId=2025"
+    
+    # Add filter parameters to URL
+    if filters:
+        url_params = []
+        
+        # Position filter (slotCategoryId)
+        if 'position' in filters and filters['position']:
+            position_map = {
+                'QB': '0', 'RB': '1', 'WR': '2', 'TE': '3', 
+                'K': '4', 'D/ST': '16'
+            }
+            positions = [p.strip().upper() for p in filters['position'].split(',')]
+            for pos in positions:
+                if pos in position_map:
+                    url_params.append(f"slotCategoryId={position_map[pos]}")
+        
+        # Status filter
+        if 'status' in filters and filters['status']:
+            status = filters['status'].upper()
+            if status == 'FA':
+                url_params.append('status=AVAILABLE')
+            elif status == 'WA':
+                url_params.append('status=WAIVERS')
+        
+        # Add parameters to URL
+        if url_params:
+            players_url += '&' + '&'.join(url_params)
+    
+    with sync_playwright() as p:
+        try:
+            # Launch browser in headless mode
+            browser = p.chromium.launch(headless=True)
+            
+            # Load saved session if available
+            if session_state:
+                context = browser.new_context(storage_state=session_state)
+                page = context.new_page()
+            else:
+                page = browser.new_page()
+            
+            # Navigate to players page
+            page.goto(players_url)
+            page.wait_for_load_state("domcontentloaded")
+            time.sleep(3)
+            
+            # Check if we need to login
+            if "login" in page.url.lower() or "signin" in page.url.lower():
+                browser.close()
+                return None
+            
+            # Extract players data
+            players_data = _extract_players_data_from_page(page)
+            
+            browser.close()
+            return players_data
+            
+        except Exception as e:
+            print(f"Error fetching players data: {e}")
+            return None
+
+
+def _extract_players_data_from_page(page: Page) -> Dict[str, Any]:
+    """
+    Extract players data from the ESPN players page
+    
+    Args:
+        page: Playwright page object
+        
+    Returns:
+        Dictionary containing players data
+    """
+    try:
+        # Get page content
+        content = page.content()
+        
+        # Return raw HTML content for parsing
+        return {
+            'html_content': content,
+            'source': 'espn',
+            'url': page.url
+        }
+        
+    except Exception as e:
+        print(f"Error extracting players data: {e}")
+        return {}

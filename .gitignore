@@ -54,3 +54,6 @@ playwright/.cache/
 # HTML source files
 html_source/
 html_input/
+
+# Logs
+logs/

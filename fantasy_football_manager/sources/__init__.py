@@ -2,7 +2,7 @@
 Data sources for Fantasy Football Manager
 """
 
-from .espn import fetch_roster as espn_fetch_roster, fetch_teams as espn_fetch_teams
+from .espn import fetch_roster as espn_fetch_roster, fetch_teams as espn_fetch_teams, fetch_players as espn_fetch_players
 from .yahoo import fetch_roster as yahoo_fetch_roster, fetch_teams as yahoo_fetch_teams
 
 def fetch_roster(team_id: str, source: str = 'espn', session_state=None):
@@ -23,4 +23,11 @@ def fetch_teams(input_file: str = "html_input/teams_table.html", source: str = '
     else:
         raise ValueError(f"Unknown source: {source}")
 
-__all__ = ['fetch_roster', 'fetch_teams']
+def fetch_players(source: str = 'espn', session_state=None, filters=None):
+    """Fetch players from specified source"""
+    if source == 'espn':
+        return espn_fetch_players(session_state, filters)
+    else:
+        raise ValueError(f"Unknown source: {source}")
+
+__all__ = ['fetch_roster', 'fetch_teams', 'fetch_players']
