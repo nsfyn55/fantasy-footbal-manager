@@ -7,8 +7,8 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 from tabulate import tabulate
-from .sources import fetch_roster as source_fetch_roster, fetch_teams as source_fetch_teams
-from .transformers import to_canonical_roster
+from .sources import fetch_roster as source_fetch_roster, fetch_teams as source_fetch_teams, fetch_players as source_fetch_players
+from .transformers import to_canonical_roster, to_canonical_players
 from .exceptions import FileOperationError
 
 logger = logging.getLogger(__name__)
@@ -230,6 +230,72 @@ class FantasyFootballData:
         print(f"\nTeam {team_id} Roster ({len(players)} players):")
         print(tabulate(table_data, headers=headers, tablefmt='grid'))
     
+    def get_players(self, source: str = 'espn', filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Get free agents/waiver players data
+        
+        Args:
+            source: Data source ('espn')
+            filters: Optional filters to apply
+            
+        Returns:
+            List of player dictionaries
+        """
+        try:
+            # Fetch raw data with filters applied at source level
+            raw_data = source_fetch_players(source=source, session_state=self.session_state, filters=filters)
+            if not raw_data:
+                logger.warning(f"Failed to fetch players data from {source}")
+                return []
+            
+            # Transform to canonical format
+            players = to_canonical_players(raw_data, source=source)
+            if not players:
+                logger.warning(f"Failed to transform players data from {source}")
+                return []
+            
+            # Apply additional client-side filters if needed
+            # (for cases where URL filtering doesn't work)
+            if filters:
+                players = self._apply_client_side_filters(players, filters)
+            
+            return players
+            
+        except Exception as e:
+            logger.error(f"Error getting players data: {e}")
+            return []
+    
+    def _apply_client_side_filters(self, players: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Apply filters to players list"""
+        
+        filtered = players.copy()
+        
+        # Position filter
+        if 'position' in filters and filters['position']:
+            positions = [p.strip().upper() for p in filters['position'].split(',')]
+            filtered = [p for p in filtered if p.get('position', '').upper() in positions]
+        
+        # Status filter
+        if 'status' in filters and filters['status']:
+            status = filters['status'].upper()
+            filtered = [p for p in filtered if status in p.get('status', '').upper()]
+        
+        # Team filter
+        if 'team' in filters and filters['team']:
+            teams = [t.strip().upper() for t in filters['team'].split(',')]
+            filtered = [p for p in filtered if p.get('team', '').upper() in teams]
+        
+        # Sort by projected points (descending)
+        filtered = sorted(filtered, 
+                         key=lambda x: x.get('projected_points', 0) or 0, 
+                         reverse=True)
+        
+        # Apply limit
+        if 'limit' in filters and filters['limit']:
+            limit = int(filters['limit'])
+            filtered = filtered[:limit]
+        
+        return filtered
 
 
 # Global instance for easy access

@@ -56,3 +56,65 @@
 2025-09-20 08:32:39 - fantasy_football_manager.actions.dump_teams - INFO - dump_teams_command:135 - dump-teams command completed successfully
 2025-09-20 08:32:39 - fantasy_football_manager.app - INFO - main:139 - Command 'dump-teams' completed successfully
 2025-09-20 08:32:50 - fantasy_football_manager.app - INFO - main:83 - Fantasy Football Manager starting up
+2025-09-20 09:12:08 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:12:08 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:12:12 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:12:22 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:12:22 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:12:26 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:12:31 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:12:31 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:12:35 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:12:38 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:13:01 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:13:04 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:14:08 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:14:08 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:14:12 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:14:39 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:14:53 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:14:58 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:14:58 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:15:02 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:26:37 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:26:49 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:26:49 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:26:54 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:32:53 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:32:53 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:32:58 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:33:27 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:33:27 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:33:32 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:33:37 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:33:37 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:33:41 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:33:44 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:33:44 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:33:49 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:46:43 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:46:43 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:46:48 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:46:58 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:46:58 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:47:03 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:47:09 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:47:09 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:47:13 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:56:26 - fantasy_football_manager.app - INFO - main:83 - Fantasy Football Manager starting up
+2025-09-20 09:58:19 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:58:19 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:58:24 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:58:28 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:58:28 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:58:32 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 09:58:36 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:58:39 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 09:58:39 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 09:58:44 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 10:06:02 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 10:06:02 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 10:06:06 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
+2025-09-20 10:06:20 - fantasy_football_manager.app - INFO - main:84 - Fantasy Football Manager starting up
+2025-09-20 10:06:20 - fantasy_football_manager.app - INFO - main:138 - Executing command: list-free-agents
+2025-09-20 10:06:24 - fantasy_football_manager.app - INFO - main:143 - Command 'list-free-agents' completed successfully
