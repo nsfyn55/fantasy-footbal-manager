@@ -3,8 +3,8 @@ List teams action - CLI interface for displaying all league teams and their IDs
 """
 
 import logging
-from core_data import ff_data
-from exceptions import DataValidationError, FileOperationError
+from ..core_data import ff_data
+from ..exceptions import DataValidationError, FileOperationError
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AI-powered fantasy football team management"
 authors = ["Arthur Carey <arthur@example.com>"]
 readme = "README.md"
-package-mode = false
+package-mode = true
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -25,4 +25,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-ffm = "app:main"
+ffm = "fantasy_football_manager.app:main"

@@ -9,7 +9,7 @@ import subprocess
 import psutil
 import logging
 from playwright.sync_api import sync_playwright
-from exceptions import AuthenticationError, BrowserOperationError, ConfigurationError, FileOperationError
+from ..exceptions import AuthenticationError, BrowserOperationError, ConfigurationError, FileOperationError
 
 logger = logging.getLogger(__name__)
 

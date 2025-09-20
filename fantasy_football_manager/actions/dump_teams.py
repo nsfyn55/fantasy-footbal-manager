@@ -4,19 +4,24 @@ Dump teams action - CLI interface for exporting team rosters to CSV
 
 import argparse
 import logging
-from core_data import ff_data
-from exceptions import DataValidationError, FileOperationError
+from ..core_data import ff_data
+from ..exceptions import DataValidationError, FileOperationError
 
 logger = logging.getLogger(__name__)
 
 
 def add_dump_teams_arguments(parser):
     """Add dump-teams specific arguments to the parser"""
-    parser.add_argument(
+    team_group = parser.add_mutually_exclusive_group(required=True)
+    team_group.add_argument(
         '--team', '-t',
         nargs='+',
-        required=True,
         help='Team ID(s) to dump (e.g., 8 for your team)'
+    )
+    team_group.add_argument(
+        '--all', '-a',
+        action='store_true',
+        help='Dump all teams from the league'
     )
     parser.add_argument(
         '--source', '-s',
@@ -90,12 +95,34 @@ def dump_teams_command(args):
     logger.info("Starting dump-teams command")
     print("→ Dumping teams...")
     
-    if not args.team:
-        print("⚠ No teams specified. Use --team to specify team IDs.")
+    # Determine which teams to process
+    if args.all:
+        logger.info("Fetching all teams from league")
+        print("→ Fetching all teams from league...")
+        
+        # Get all teams from core_data
+        all_teams = ff_data.get_all_teams()
+        if not all_teams:
+            print("⚠ No teams found in league data.")
+            return
+        
+        # Extract team IDs
+        team_ids = [team.get('team_id') for team in all_teams if team.get('team_id')]
+        if not team_ids:
+            print("⚠ No valid team IDs found in league data.")
+            return
+        
+        print(f"→ Found {len(team_ids)} teams: {', '.join(team_ids)}")
+        
+    elif args.team:
+        team_ids = args.team
+        print(f"→ Processing {len(team_ids)} specified team(s): {', '.join(team_ids)}")
+    else:
+        print("⚠ No teams specified. Use --team to specify team IDs or --all to dump all teams.")
         return
     
     # Process each team - let exceptions propagate to global handler
-    for team_id in args.team:
+    for team_id in team_ids:
         logger.info(f"Processing team {team_id}")
         dump_single_team(
             team_id=team_id,
@@ -106,4 +133,4 @@ def dump_teams_command(args):
         )
     
     logger.info("dump-teams command completed successfully")
-    print("✓ All teams processed successfully")
+    print(f"✓ All {len(team_ids)} teams processed successfully")

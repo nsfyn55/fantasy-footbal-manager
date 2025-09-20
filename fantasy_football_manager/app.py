@@ -8,10 +8,10 @@ import sys
 import logging
 import logging.config
 import os
-from exceptions import FantasyFootballManagerError
-from actions.login import login_command
-from actions.dump_teams import dump_teams_command, add_dump_teams_arguments
-from actions.list_teams import list_teams_command, add_list_teams_arguments
+from .exceptions import FantasyFootballManagerError
+from .actions.login import login_command
+from .actions.dump_teams import dump_teams_command, add_dump_teams_arguments
+from .actions.list_teams import list_teams_command, add_list_teams_arguments
 
 
 def setup_logging(log_level: str = "INFO"):
@@ -91,6 +91,7 @@ Examples:
   ffm list-teams              # List all teams and their IDs
   ffm dump-teams -t 8         # Export team 8 roster to terminal
   ffm dump-teams -t 8 9 10    # Export multiple teams to terminal
+  ffm dump-teams --all        # Export all teams from the league
         """
     )
     
@@ -114,7 +115,7 @@ Examples:
     list_teams_parser.set_defaults(func=list_teams_command)
     
     # Dump teams command
-    dump_teams_parser = subparsers.add_parser('dump-teams', help='Export opponent teams to CSV')
+    dump_teams_parser = subparsers.add_parser('dump-teams', help='Export team rosters to CSV (specify teams with -t or use --all for all teams)')
     add_dump_teams_arguments(dump_teams_parser)
     dump_teams_parser.set_defaults(func=dump_teams_command)
     
