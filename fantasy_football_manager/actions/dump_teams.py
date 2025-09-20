@@ -39,6 +39,11 @@ def add_dump_teams_arguments(parser):
         help='Export team data to CSV with Manager column for analytics'
     )
     parser.add_argument(
+        '--unified-csv',
+        action='store_true',
+        help='Export all teams to a single unified CSV file (requires --all)'
+    )
+    parser.add_argument(
         '--format',
         choices=['csv', 'json'],
         default='csv',
@@ -95,6 +100,11 @@ def dump_teams_command(args):
     logger.info("Starting dump-teams command")
     print("→ Dumping teams...")
     
+    # Validate unified-csv usage
+    if args.unified_csv and not args.all:
+        print("⚠ --unified-csv requires --all flag. Use --all --unified-csv to export all teams to a single CSV.")
+        return
+    
     # Determine which teams to process
     if args.all:
         logger.info("Fetching all teams from league")
@@ -114,23 +124,73 @@ def dump_teams_command(args):
         
         print(f"→ Found {len(team_ids)} teams: {', '.join(team_ids)}")
         
+        # Handle unified CSV export
+        if args.unified_csv:
+            logger.info("Exporting all teams to unified CSV")
+            print("→ Exporting all teams to unified CSV...")
+            
+            # Set output filename for unified CSV
+            unified_output = args.output
+            if not unified_output:
+                unified_output = "league_unified_roster.csv"
+            elif not unified_output.endswith('.csv'):
+                unified_output = f"{unified_output}.csv"
+            
+            try:
+                csv_filename = ff_data.export_all_teams_to_csv(
+                    team_ids=team_ids,
+                    source=args.source,
+                    filename=unified_output
+                )
+                
+                if csv_filename:
+                    logger.info(f"Unified CSV exported successfully: {csv_filename}")
+                    print(f"✓ Unified CSV exported: {csv_filename}")
+                else:
+                    logger.error("Failed to export unified CSV")
+                    print("⚠ Failed to export unified CSV")
+                    return
+                    
+            except Exception as e:
+                logger.error(f"Error exporting unified CSV: {e}")
+                print(f"⚠ Error exporting unified CSV: {e}")
+                return
+        
+        # If not unified CSV, process each team individually
+        if not args.unified_csv:
+            # Process each team - let exceptions propagate to global handler
+            for team_id in team_ids:
+                logger.info(f"Processing team {team_id}")
+                dump_single_team(
+                    team_id=team_id,
+                    source=args.source,
+                    output_path=args.output,
+                    format=args.format,
+                    export_csv=args.csv
+                )
+    
     elif args.team:
         team_ids = args.team
         print(f"→ Processing {len(team_ids)} specified team(s): {', '.join(team_ids)}")
+        
+        # Process each team - let exceptions propagate to global handler
+        for team_id in team_ids:
+            logger.info(f"Processing team {team_id}")
+            dump_single_team(
+                team_id=team_id,
+                source=args.source,
+                output_path=args.output,
+                format=args.format,
+                export_csv=args.csv
+            )
     else:
         print("⚠ No teams specified. Use --team to specify team IDs or --all to dump all teams.")
         return
     
-    # Process each team - let exceptions propagate to global handler
-    for team_id in team_ids:
-        logger.info(f"Processing team {team_id}")
-        dump_single_team(
-            team_id=team_id,
-            source=args.source,
-            output_path=args.output,
-            format=args.format,
-            export_csv=args.csv
-        )
-    
     logger.info("dump-teams command completed successfully")
-    print(f"✓ All {len(team_ids)} teams processed successfully")
+    if args.all and not args.unified_csv:
+        print(f"✓ All {len(team_ids)} teams processed successfully")
+    elif args.all and args.unified_csv:
+        print(f"✓ Unified CSV export completed for {len(team_ids)} teams")
+    else:
+        print(f"✓ All {len(team_ids)} teams processed successfully")

@@ -265,6 +265,127 @@ class FantasyFootballData:
             logger.error(f"Error getting players data: {e}")
             return []
     
+    def export_all_teams_to_csv(self, team_ids: List[str], source: str = 'espn', 
+                               filename: str = None) -> Optional[str]:
+        """
+        Export all teams' roster data to a single unified CSV file
+        
+        Args:
+            team_ids: List of team IDs to export
+            source: Data source to use ('espn', 'yahoo', etc.)
+            filename: Output filename (optional)
+            
+        Returns:
+            Path to created CSV file or None if failed
+        """
+        if not team_ids:
+            logger.warning("No team IDs provided for unified CSV export")
+            return None
+        
+        import csv
+        
+        # Set default filename if not provided
+        if not filename:
+            filename = "output/league_unified_roster.csv"
+        elif not filename.startswith('/') and not filename.startswith('./') and not filename.startswith('../'):
+            if not filename.startswith('output/'):
+                filename = f"output/{filename}"
+        
+        # Define column order (same as individual team export)
+        csv_columns = [
+            'Manager', 'Team_ID', 'Player Name', 'Team', 'Position', 'Roster Status', 
+            'Opponent', 'Game Time', 'Projected Points', 'Points', 'Avg Points', 
+            'Last Game', 'Rank', 'Ownership %', 'Start %', 'Status', 'Trend', 'Notes'
+        ]
+        
+        # Collect all players from all teams
+        all_players = []
+        failed_teams = []
+        
+        for team_id in team_ids:
+            try:
+                logger.info(f"Fetching roster data for team {team_id}")
+                team_data = self.get_roster(team_id, source)
+                
+                if not team_data or not team_data.get('players'):
+                    logger.warning(f"No roster data found for team {team_id}")
+                    failed_teams.append(team_id)
+                    continue
+                
+                players = team_data['players']
+                manager = team_data.get('manager_name') or f"Manager{team_id}"
+                
+                # Add Manager and Team_ID to each player
+                for player in players:
+                    player_copy = player.copy()
+                    player_copy['Manager'] = manager
+                    player_copy['Team_ID'] = team_id
+                    all_players.append(player_copy)
+                
+                logger.info(f"Successfully processed {len(players)} players from team {team_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to process team {team_id}: {e}")
+                failed_teams.append(team_id)
+                continue
+        
+        if not all_players:
+            logger.error("No player data collected for unified CSV export")
+            return None
+        
+        # Get available columns from all players
+        all_headers = set()
+        for player in all_players:
+            all_headers.update(player.keys())
+        
+        all_headers.discard('Action')
+        all_headers.discard('Player_Info')
+        
+        # Create ordered headers
+        headers = []
+        for col in csv_columns:
+            if col in all_headers:
+                headers.append(col)
+                all_headers.remove(col)
+        headers.extend(sorted(all_headers))
+        
+        # Ensure Manager and Team_ID are first
+        if 'Manager' not in headers:
+            headers.insert(0, 'Manager')
+        if 'Team_ID' not in headers:
+            headers.insert(1, 'Team_ID')
+        
+        try:
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=headers)
+                writer.writeheader()
+                
+                for player in all_players:
+                    # Clean up data for CSV
+                    cleaned_row = {}
+                    for header in headers:
+                        value = player.get(header, '')
+                        cleaned_row[header] = str(value).strip() if value is not None else ''
+                    
+                    writer.writerow(cleaned_row)
+            
+            logger.info(f"Unified CSV exported successfully: {filename}")
+            logger.info(f"Total players exported: {len(all_players)}")
+            if failed_teams:
+                logger.warning(f"Failed to process teams: {', '.join(failed_teams)}")
+            
+            return filename
+            
+        except (FileNotFoundError, PermissionError) as e:
+            logger.error(f"File system error exporting unified CSV: {e}")
+            raise FileOperationError(f"Cannot write unified CSV file: {e}") from e
+        except (OSError, IOError) as e:
+            logger.error(f"I/O error exporting unified CSV: {e}")
+            raise FileOperationError(f"I/O error writing unified CSV: {e}") from e
+        except Exception as e:
+            logger.exception(f"Unexpected error exporting unified CSV: {e}")
+            raise FileOperationError(f"Failed to export unified CSV: {e}") from e
+
     def _apply_client_side_filters(self, players: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Apply filters to players list"""
         
